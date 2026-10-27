@@ -1,0 +1,93 @@
+openapi: 3.0.0
+info:
+  title: API Modul M11 - Goods Receipt Note (GRN)
+  description: API untuk mencatat penerimaan barang dari supplier (US: M11-US1)
+  version: 1.0.1
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local Development Server
+paths:
+  /grn/receive:
+    post:
+      summary: Mencatat penerimaan barang penuh
+      description: Mencatat penerimaan barang dari PO yang telah disetujui dan men-trigger webhook ke Modul M9.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - purchase_order_id
+                - received_date
+                - items
+              properties:
+                purchase_order_id:
+                  type: string
+                  example: "PO-2026-10-001"
+                received_date:
+                  type: string
+                  format: date
+                  example: "2026-10-24"
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      item_id:
+                        type: string
+                        example: "ITM-001"
+                      quantity_received:
+                        type: integer
+                        example: 50
+      responses:
+        '200':
+          description: Berhasil. Penerimaan barang dicatat dan PO menjadi "diterima".
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  status: "success"
+                  message: "Penerimaan barang berhasil dicatat dan sinkronisasi ke M9 berhasil."
+        '400':
+          description: Gagal akibat validasi bisnis (Kuantitas salah, dll)
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  status: "error"
+                  error:
+                    code: "QUANTITY_EXCEEDED"
+                    message: "Jumlah diterima melebihi pesanan"
+        '404':
+          description: PO Tidak Ditemukan
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  status: "error"
+                  error:
+                    code: "PO_NOT_FOUND"
+                    message: "Purchase order tidak ditemukan"
+        '409':
+          description: PO Belum Disetujui
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  status: "error"
+                  error:
+                    code: "PO_NOT_APPROVED"
+                    message: "PO belum disetujui, tidak bisa diproses"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
