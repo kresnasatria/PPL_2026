@@ -1,18 +1,25 @@
 openapi: 3.0.0
 info:
   title: API Modul M11 - Goods Receipt Note (GRN)
-  description: API untuk mencatat penerimaan barang dari supplier (US: M11-US1)
-  version: 1.0.1
+  description: API untuk mencatat penerimaan barang dari supplier sesuai Panduan API Bersama v1.0
+  version: 2.0.0
 servers:
-  - url: http://localhost:8000/api/v1
-    description: Local Development Server
+  - url: https://server-bersama/api/m11/v1
+    description: Server Bersama Araya Business Hub
 paths:
-  /grn/receive:
+  /purchase-orders/{purchase_order_id}/receive:
     post:
-      summary: Mencatat penerimaan barang penuh
-      description: Mencatat penerimaan barang dari PO yang telah disetujui dan men-trigger webhook ke Modul M9.
+      summary: Mencatat penerimaan barang
+      description: Mencatat penerimaan barang dan mengirim event ke Modul M9
       security:
         - bearerAuth: []
+      parameters:
+        - in: path
+          name: purchase_order_id
+          required: true
+          schema:
+            type: integer
+            example: 125
       requestBody:
         required: true
         content:
@@ -20,13 +27,9 @@ paths:
             schema:
               type: object
               required:
-                - purchase_order_id
                 - received_date
                 - items
               properties:
-                purchase_order_id:
-                  type: string
-                  example: "PO-2026-10-001"
                 received_date:
                   type: string
                   format: date
@@ -36,33 +39,37 @@ paths:
                   items:
                     type: object
                     properties:
-                      item_id:
-                        type: string
-                        example: "ITM-001"
-                      quantity_received:
+                      product_id:
+                        type: integer
+                        example: 31
+                      qty_received:
                         type: integer
                         example: 50
       responses:
         '200':
-          description: Berhasil. Penerimaan barang dicatat dan PO menjadi "diterima".
+          description: Berhasil
           content:
             application/json:
               schema:
                 type: object
                 example:
-                  status: "success"
-                  message: "Penerimaan barang berhasil dicatat dan sinkronisasi ke M9 berhasil."
+                  success: true
+                  data:
+                    purchase_order_id: 125
+                    status: "diterima"
+                    received_date: "2026-10-24"
         '400':
-          description: Gagal akibat validasi bisnis (Kuantitas salah, dll)
+          description: Gagal akibat kuantitas melebihi pesanan
           content:
             application/json:
               schema:
                 type: object
                 example:
-                  status: "error"
+                  success: false
                   error:
                     code: "QUANTITY_EXCEEDED"
                     message: "Jumlah diterima melebihi pesanan"
+                    fields: null
         '404':
           description: PO Tidak Ditemukan
           content:
@@ -70,10 +77,11 @@ paths:
               schema:
                 type: object
                 example:
-                  status: "error"
+                  success: false
                   error:
                     code: "PO_NOT_FOUND"
                     message: "Purchase order tidak ditemukan"
+                    fields: null
         '409':
           description: PO Belum Disetujui
           content:
@@ -81,10 +89,24 @@ paths:
               schema:
                 type: object
                 example:
-                  status: "error"
+                  success: false
                   error:
                     code: "PO_NOT_APPROVED"
                     message: "PO belum disetujui, tidak bisa diproses"
+                    fields: null
+        '422':
+          description: Isian tidak lolos validasi
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  success: false
+                  error:
+                    code: "INVALID_QUANTITY"
+                    message: "Jumlah tidak valid"
+                    fields:
+                      qty_received: "Jumlah tidak boleh kosong atau nol"
 components:
   securitySchemes:
     bearerAuth:
